@@ -20,12 +20,15 @@ input[type=checkbox]{width:22px;height:22px}input[type=text],input[type=number]{
 .chip{border:1px solid var(--bd);background:var(--card);border-radius:12px;padding:7px 0 6px;text-align:center;font-size:12px;color:var(--mu);box-shadow:var(--sh)}
 .chip b{display:block;font-size:16px;color:var(--tx)}.chip.sel{background:var(--today);border-color:var(--today);color:#fff}.chip.sel b{color:#fff}
 .chip.tdy:not(.sel){border-color:var(--today)}.chip i{display:block;font-style:normal;height:14px;font-size:11px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
 .grid label{display:block;margin:0;font-size:12px}.grid input[type=number]{width:100%;margin-top:4px;font-size:18px;padding:9px 8px}
 .done{margin-top:12px;font-size:15px}
 details{margin-top:10px}summary{color:var(--ac);font-size:14px;cursor:pointer}
 .kc{font-size:13px;color:var(--mu)}
 @media(min-width:700px){body{max-width:760px}}
+.meals{margin-top:12px}.meals h4{margin:0 0 6px;font-size:13px;color:var(--mu);font-weight:600;display:flex;justify-content:space-between}
+.m{display:grid;grid-template-columns:1fr 72px 62px 34px;gap:6px;margin-bottom:6px}.m input{width:100%!important;padding:8px 6px!important;font-size:16px!important}.m input.nm{font-size:15px!important}
+.m button{padding:0;border-radius:8px}.add button{background:var(--today);color:#fff;border:0;font-weight:600}
 </style></head><body>
 <header><h1>StridePro <span><button id="st">🔑</button> <button id="today">Dziś</button></span></h1>
 <div class="nav"><button id="prev">‹</button><span id="wk"></span><button id="next">›</button></div></header>
@@ -41,6 +44,15 @@ const addD=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);retu
 const TODAY=iso(new Date());let mon=monday(TODAY);
 const fmt=s=>{const d=new Date(s+"T12:00:00");return d.getDate()+"."+String(d.getMonth()+1).padStart(2,"0")};
 const esc=t=>String(t).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+const liveMeals=d=>Object.entries((S[d]||{}).meals||{}).filter(([,m])=>!m.del).sort((a,b)=>(a[1].c||0)-(b[1].c||0));
+const tot=d=>liveMeals(d).reduce((a,[,m])=>({k:a.k+(+m.k||0),p:a.p+(+m.p||0)}),{k:0,p:0});
+function mealsHtml(d){const t=tot(d);
+ return `<div class="meals"><h4><span>Posiłki</span><span>Razem ${t.k} kcal · ${Math.round(t.p)} g białka</span></h4>`+
+ liveMeals(d).map(([id,m])=>`<div class="m"><input class="nm" type="text" placeholder="Posiłek" value="${esc(m.n||"")}" data-d="${d}" data-m="${id}" data-f="n"><input type="number" inputmode="numeric" value="${m.k??""}" placeholder="kcal" data-d="${d}" data-m="${id}" data-f="k"><input type="number" inputmode="decimal" value="${m.p??""}" placeholder="B g" data-d="${d}" data-m="${id}" data-f="p"><button data-del="${id}" data-d="${d}">✕</button></div>`).join("")+
+ `<div class="m add"><input class="nm" type="text" placeholder="Nazwa (opcjonalnie)" id="an"><input type="number" inputmode="numeric" placeholder="kcal" id="ak"><input type="number" inputmode="decimal" placeholder="B g" id="ap"><button data-add="${d}">＋</button></div></div>`}
+function touchMeal(d,id,f,v){const day=S[d]=S[d]||{};const m=(day.meals=day.meals||{})[id]=day.meals[id]||{c:Date.now()};
+ if(f)m[f]=f==="n"?v:(v===""?null:Number(v));m.u=Date.now();save();push()}
 let sel=TODAY;
 const ICON={rest:"😴",easy:"🏃",quality:"⚡",long:"🏃‍♂️",swim:"🏊",bike:"🚴",brick:"🔁",race:"🏁"};
 function render(){
@@ -58,8 +70,7 @@ function render(){
    h+=`<div class="day ${x.d===TODAY?"today":x.d<TODAY?"past":""}"><div class="hd"><span>${x.dn} ${fmt(x.d)} · ${esc(x.w)}</span><span>${x.b?x.b+" kcal":""}</span></div>
    <div class="t"><span class="tag">${esc(x.c)}</span>${esc(x.t)}</div>${x.g?`<div class="x">💪 ${esc(x.g)}</div>`:""}
    <details><summary>Opis treningu</summary><div class="x">${esc(x.x)}</div></details>
-   <div class="grid">
-    <label>Zjedzone kcal<input type="number" inputmode="numeric" data-d="${x.d}" data-k="kcal" value="${s.kcal??""}"></label>
+   ${mealsHtml(x.d)}<div class="grid">
     <label>Waga rano (kg)<input type="number" inputmode="decimal" step="0.1" data-d="${x.d}" data-k="kg" value="${s.kg??""}"></label>
     ${x.d<=TODAY?`<label>Garmin ${x.d===TODAY?"wczoraj":"spalone"}<input type="number" inputmode="numeric" data-d="${gd}" data-k="garmin" value="${gv??""}"></label>`:"<span></span>"}
    </div>
@@ -67,8 +78,13 @@ function render(){
   else h+="<p>Brak planu na ten dzień.</p>";
   document.getElementById("m").innerHTML=h;
 }
-document.getElementById("m").addEventListener("click",e=>{const c=e.target.closest("[data-sel]");if(c){sel=c.dataset.sel;render()}});
-document.getElementById("m").addEventListener("change",e=>{const t=e.target,d=t.dataset.d;if(!d)return;const k=t.dataset.k;(S[d]=S[d]||{})[k]=t.type==="checkbox"?t.checked:(t.value===""?null:Number(t.value));(S[d].u=S[d].u||{})[k]=Date.now();save();push()});
+document.getElementById("m").addEventListener("click",e=>{
+  const ad=e.target.closest("[data-add]");if(ad){const k=document.getElementById("ak").value,p=document.getElementById("ap").value,n=document.getElementById("an").value.trim();
+    if(k===""&&p==="")return;const d=ad.dataset.add,id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    touchMeal(d,id,"k",k);const m=S[d].meals[id];m.n=n;m.p=p===""?null:Number(p);save();render();push();return}
+  const dl=e.target.closest("[data-del]");if(dl){touchMeal(dl.dataset.d,dl.dataset.del);S[dl.dataset.d].meals[dl.dataset.del].del=true;S[dl.dataset.d].meals[dl.dataset.del].u=Date.now();save();render();push();return}
+const c=e.target.closest("[data-sel]");if(c){sel=c.dataset.sel;render()}});
+document.getElementById("m").addEventListener("change",e=>{const t=e.target,d=t.dataset.d;if(!d)return;if(t.dataset.m){touchMeal(d,t.dataset.m,t.dataset.f,t.value);render();return}const k=t.dataset.k;(S[d]=S[d]||{})[k]=t.type==="checkbox"?t.checked:(t.value===""?null:Number(t.value));(S[d].u=S[d].u||{})[k]=Date.now();save();push()});
 document.getElementById("prev").onclick=()=>{mon=addD(mon,-7);render()};
 document.getElementById("next").onclick=()=>{mon=addD(mon,7);render()};
 document.getElementById("today").onclick=()=>{mon=monday(TODAY);sel=TODAY;render()};
@@ -78,7 +94,7 @@ document.addEventListener("touchend",e=>{if(x0===null||e.target.closest("input")
 const REPO="Diwadeq/stridepro-data",FILE="kcal.json";let TOKEN="";try{TOKEN=localStorage.getItem("sp-token")||""}catch(e){}
 const api=()=>"https://api.github.com/repos/"+REPO+"/contents/"+FILE;
 const hdr=()=>({Authorization:"Bearer "+TOKEN,Accept:"application/vnd.github+json"});
-function merge(a,b){const o={...a};for(const d in b){const x=o[d]=o[d]||{u:{}},y=b[d];x.u=x.u||{};for(const k of Object.keys(y.u||{}))if((y.u[k]||0)>(x.u[k]||0)){x[k]=y[k];x.u[k]=y.u[k]}}return o}
+function merge(a,b){const o={...a};for(const d in b){const x=o[d]=o[d]||{u:{}},y=b[d];x.u=x.u||{};if(y.meals){x.meals=x.meals||{};for(const id in y.meals){const p=x.meals[id],q=y.meals[id];if(!p||(q.u||0)>(p.u||0))x.meals[id]=q}}for(const k of Object.keys(y.u||{}))if((y.u[k]||0)>(x.u[k]||0)){x[k]=y[k];x.u[k]=y.u[k]}}return o}
 let sha=null,busy=false,again=false;
 async function pull(){if(!TOKEN)return;const r=await fetch(api(),{headers:hdr(),cache:"no-store"});
  if(r.status===404){sha=null;return}if(!r.ok)throw new Error(r.status);const j=await r.json();sha=j.sha;
