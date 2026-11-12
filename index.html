@@ -60,8 +60,10 @@ function touchMeal(d,id,f,v){const day=S[d]=S[d]||{};const m=(day.meals=day.meal
 const SURP={rest:[100,65],quality:[200,60],long:[200,60],bike:[200,60],race:[200,55],swim:[150,60]};
 const dayN=d=>Math.round(new Date(d+"T12:00:00").getTime()/864e5);
 function pkg(d){const a=dayN("2026-10-01"),b=dayN("2027-10-01"),t=Math.min(Math.max((dayN(d)-a)/(b-a),0),1);return 66+(72-66)*t}
+const DEFAULT_ADJ=250; // last weigh-in correction from the app (kcal_adj 02.11); replaced as soon as a synced value exists
+const curAdj=()=>(S._cfg&&S._cfg.adj!=null)?S._cfg.adj:DEFAULT_ADJ;
 function target(x){const [sp,fat]=SURP[x.c]||[150,60],ks=pkg(x.d)/66,prot=Math.round(pkg(x.d)*2.20462);
- const run=["easy","quality","long"].includes(x.c),burn=run?Math.round(x.b*ks):x.b,adj=(S._cfg&&S._cfg.adj)||0;
+ const run=["easy","quality","long"].includes(x.c),burn=run?Math.round(x.b*ks):x.b,adj=curAdj();
  const mt=Math.round(2000*ks)+burn,fs=Math.min(Math.max((x.d>="2027-07-26"?0:sp)+adj,0),Math.floor(mt/5));
  const carbs=Math.round((mt+fs-4*prot-9*fat)/4);return {kcal:4*carbs+4*prot+9*fat,p:prot,c:carbs,f:fat}}
 let sel=TODAY;
@@ -81,7 +83,7 @@ function render(){
    h+=`<div class="day ${x.d===TODAY?"today":x.d<TODAY?"past":""}"><div class="hd"><span>${x.dn} ${fmt(x.d)} · ${esc(x.w)}</span><span>${x.b?x.b+" kcal":""}</span></div>
    <div class="t"><span class="tag">${esc(x.c)}</span>${esc(x.t)}</div>${x.g?`<div class="x">💪 ${esc(x.g)}</div>`:""}
    <details><summary>Opis treningu</summary><div class="x">${esc(x.x)}</div></details>
-   ${(()=>{const T=target(x),e=tot(x.d);return `<div class="tg"><div><b>${T.kcal}</b><span>cel kcal</span></div><div><b>${T.p}</b><span>białko g</span></div><div><b>${T.kcal-e.k}</b><span>${T.kcal-e.k>=0?"zostało":"ponad"}</span></div></div><div class="kc">Węgle ~${T.c} g · tłuszcz ~${T.f} g${((S._cfg||{}).adj)?` · korekta ${S._cfg.adj>0?"+":""}${S._cfg.adj}`:""}</div>`})()}${mealsHtml(x.d)}<div class="grid">
+   ${(()=>{const T=target(x),e=tot(x.d);return `<div class="tg"><div><b>${T.kcal}</b><span>cel kcal</span></div><div><b>${T.p}</b><span>białko g</span></div><div><b>${T.kcal-e.k}</b><span>${T.kcal-e.k>=0?"zostało":"ponad"}</span></div></div><div class="kc">Węgle ~${T.c} g · tłuszcz ~${T.f} g${curAdj()?` · korekta ${curAdj()>0?"+":""}${curAdj()}`:""}</div>`})()}${mealsHtml(x.d)}<div class="grid">
     <label>Waga rano (kg)<input type="text" inputmode="decimal" data-d="${x.d}" data-k="kg" value="${s.kg??""}"></label>
     ${x.d<=TODAY?`<label>Garmin ${x.d===TODAY?"wczoraj":"spalone"}<input type="number" inputmode="numeric" data-d="${gd}" data-k="garmin" value="${gv??""}"></label>`:"<span></span>"}
    </div>
@@ -116,7 +118,7 @@ async function push(){if(!TOKEN)return;if(busy){again=true;return}busy=true;setS
   if(r.status===409||r.status===422){busy=false;return push()}if(!r.ok)throw new Error(r.status);sha=(await r.json()).content.sha;setSt("✓")}
  catch(e){setSt("✗ "+e.message)}busy=false;if(again){again=false;push()}}
 function setSt(t){document.getElementById("st").textContent=t}
-document.getElementById("adj").onclick=()=>{const v=prompt("Korekta celu kcal (np. +100 lub -50), z apki / check-inu wagi:",(S._cfg||{}).adj||0);if(v===null)return;const n=parseInt(v,10);if(isNaN(n))return;(S._cfg=S._cfg||{u:{}}).adj=n;S._cfg.u.adj=Date.now();save();render();push()};
+document.getElementById("adj").onclick=()=>{const v=prompt("Korekta celu kcal (np. +100 lub -50), z apki / check-inu wagi:",curAdj());if(v===null)return;const n=parseInt(v,10);if(isNaN(n))return;(S._cfg=S._cfg||{u:{}}).adj=n;S._cfg.u.adj=Date.now();save();render();push()};
 document.getElementById("st").onclick=()=>{const t=prompt("Token GitHub (tylko to repo, Contents read/write):",TOKEN);if(t!==null){TOKEN=t.trim();try{localStorage.setItem("sp-token",TOKEN)}catch(e){}pull().then(()=>{render();push()}).catch(e=>setSt("✗ "+e.message))}};
 if(TOKEN)pull().then(()=>{render();setSt("✓")}).catch(e=>setSt("✗ "+e.message));else setSt("🔑");
 setInterval(()=>{if(TOKEN&&!document.hidden&&!busy&&!document.activeElement.matches("input"))pull().then(render).catch(()=>{})},60000);
