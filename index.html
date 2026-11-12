@@ -16,6 +16,16 @@ button{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-
 .tag{display:inline-block;font-size:12px;border-radius:6px;padding:1px 7px;margin-right:6px;background:var(--in);color:var(--ac);border:1px solid var(--bd)}
 label{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px;color:var(--mu)}
 input[type=checkbox]{width:22px;height:22px}input[type=text],input[type=number]{background:var(--in);border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:6px;width:90px}
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:8px 0 4px}
+.chip{border:1px solid var(--bd);background:var(--card);border-radius:12px;padding:7px 0 6px;text-align:center;font-size:12px;color:var(--mu);box-shadow:var(--sh)}
+.chip b{display:block;font-size:16px;color:var(--tx)}.chip.sel{background:var(--today);border-color:var(--today);color:#fff}.chip.sel b{color:#fff}
+.chip.tdy:not(.sel){border-color:var(--today)}.chip i{display:block;font-style:normal;height:14px;font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.grid label{display:block;margin:0;font-size:12px}.grid input[type=number]{width:100%;margin-top:4px;font-size:18px;padding:9px 8px}
+.done{margin-top:12px;font-size:15px}
+details{margin-top:10px}summary{color:var(--ac);font-size:14px;cursor:pointer}
+.kc{font-size:13px;color:var(--mu)}
+@media(min-width:700px){body{max-width:760px}}
 </style></head><body>
 <header><h1>StridePro <span><button id="st">🔑</button> <button id="today">Dziś</button></span></h1>
 <div class="nav"><button id="prev">‹</button><span id="wk"></span><button id="next">›</button></div></header>
@@ -31,26 +41,39 @@ const addD=(s,n)=>{const d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);retu
 const TODAY=iso(new Date());let mon=monday(TODAY);
 const fmt=s=>{const d=new Date(s+"T12:00:00");return d.getDate()+"."+String(d.getMonth()+1).padStart(2,"0")};
 const esc=t=>String(t).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+let sel=TODAY;
+const ICON={rest:"😴",easy:"🏃",quality:"⚡",long:"🏃‍♂️",swim:"🏊",bike:"🚴",brick:"🔁",race:"🏁"};
 function render(){
   const first=DAYS[0].d,last=DAYS[DAYS.length-1].d;
   if(mon<monday(first))mon=monday(first);if(mon>monday(last))mon=monday(last);
+  if(!(sel>=mon&&sel<=addD(mon,6)))sel=(TODAY>=mon&&TODAY<=addD(mon,6))?TODAY:mon;
   document.getElementById("wk").textContent=fmt(mon)+" – "+fmt(addD(mon,6))+(mon===monday(TODAY)?" · ten tydzień":"");
-  const rows=DAYS.filter(x=>x.d>=mon&&x.d<=addD(mon,6));
-  document.getElementById("m").innerHTML=rows.length?rows.map(x=>{const s=S[x.d]||{};
-   return `<div class="day ${x.d===TODAY?"today":x.d<TODAY?"past":""}" id="d${x.d}"><div class="hd"><span>${x.dn} ${fmt(x.d)}</span><span>${x.b?x.b+" kcal spalone":""}</span></div>
-   <div class="t"><span class="tag">${esc(x.c)}</span>${esc(x.t)}</div>${x.g?`<div class="x">💪 ${esc(x.g)}</div>`:""}<div class="x">${esc(x.x)}</div>
-   <label><input type="checkbox" data-d="${x.d}" data-k="ok" ${s.ok?"checked":""}> Zrobione</label>
-   <label>Zjedzone kcal <input type="number" data-d="${x.d}" data-k="kcal" value="${s.kcal??""}"></label>
-   <label>Waga rano (kg) <input type="number" step="0.1" data-d="${x.d}" data-k="kg" value="${s.kg??""}"></label>
-   ${x.d<=TODAY?`<label>Garmin spalone ${x.d===TODAY?"wczoraj":"tego dnia"} <input type="number" data-d="${x.d===TODAY?addD(x.d,-1):x.d}" data-k="garmin" value="${(S[x.d===TODAY?addD(x.d,-1):x.d]||{}).garmin??""}"></label>`:""}
-   </div>`}).join(""):"<p>Brak planu na ten tydzień.</p>";
+  const rows=DAYS.filter(x=>x.d>=mon&&x.d<=addD(mon,6));const by={};rows.forEach(x=>by[x.d]=x);
+  let h='<div class="strip">';
+  for(let i=0;i<7;i++){const d=addD(mon,i),x=by[d],st=S[d]||{};
+    h+=`<div class="chip ${d===sel?"sel":""} ${d===TODAY?"tdy":""}" data-sel="${d}">${["Pn","Wt","Śr","Cz","Pt","So","Nd"][i]}<b>${+d.slice(8)}</b><i>${st.ok?"✅":(x?ICON[x.c]||"•":"")}</i></div>`}
+  h+="</div>";
+  const x=by[sel];
+  if(x){const s=S[x.d]||{},gd=x.d===TODAY?addD(x.d,-1):x.d,gv=(S[gd]||{}).garmin;
+   h+=`<div class="day ${x.d===TODAY?"today":x.d<TODAY?"past":""}"><div class="hd"><span>${x.dn} ${fmt(x.d)} · ${esc(x.w)}</span><span>${x.b?x.b+" kcal":""}</span></div>
+   <div class="t"><span class="tag">${esc(x.c)}</span>${esc(x.t)}</div>${x.g?`<div class="x">💪 ${esc(x.g)}</div>`:""}
+   <details><summary>Opis treningu</summary><div class="x">${esc(x.x)}</div></details>
+   <div class="grid">
+    <label>Zjedzone kcal<input type="number" inputmode="numeric" data-d="${x.d}" data-k="kcal" value="${s.kcal??""}"></label>
+    <label>Waga rano (kg)<input type="number" inputmode="decimal" step="0.1" data-d="${x.d}" data-k="kg" value="${s.kg??""}"></label>
+    ${x.d<=TODAY?`<label>Garmin ${x.d===TODAY?"wczoraj":"spalone"}<input type="number" inputmode="numeric" data-d="${gd}" data-k="garmin" value="${gv??""}"></label>`:"<span></span>"}
+   </div>
+   <label class="done"><input type="checkbox" data-d="${x.d}" data-k="ok" ${s.ok?"checked":""}> Trening zrobiony</label></div>`}
+  else h+="<p>Brak planu na ten dzień.</p>";
+  document.getElementById("m").innerHTML=h;
 }
+document.getElementById("m").addEventListener("click",e=>{const c=e.target.closest("[data-sel]");if(c){sel=c.dataset.sel;render()}});
 document.getElementById("m").addEventListener("change",e=>{const t=e.target,d=t.dataset.d;if(!d)return;const k=t.dataset.k;(S[d]=S[d]||{})[k]=t.type==="checkbox"?t.checked:(t.value===""?null:Number(t.value));(S[d].u=S[d].u||{})[k]=Date.now();save();push()});
 document.getElementById("prev").onclick=()=>{mon=addD(mon,-7);render()};
 document.getElementById("next").onclick=()=>{mon=addD(mon,7);render()};
-document.getElementById("today").onclick=()=>{mon=monday(TODAY);render();const e=document.getElementById("d"+TODAY);e&&e.scrollIntoView()};
+document.getElementById("today").onclick=()=>{mon=monday(TODAY);sel=TODAY;render()};
 let x0=null;document.addEventListener("touchstart",e=>x0=e.touches[0].clientX);
-document.addEventListener("touchend",e=>{if(x0===null||e.target.closest("input"))return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>80){mon=addD(mon,dx<0?7:-7);render()}});
+document.addEventListener("touchend",e=>{if(x0===null||e.target.closest("input"))return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>80){sel=addD(sel,dx<0?1:-1);mon=monday(sel);render()}});
 // ---- GitHub sync: kcal.json in the repo, per-field newest wins ----
 const REPO="Diwadeq/stridepro-data",FILE="kcal.json";let TOKEN="";try{TOKEN=localStorage.getItem("sp-token")||""}catch(e){}
 const api=()=>"https://api.github.com/repos/"+REPO+"/contents/"+FILE;
