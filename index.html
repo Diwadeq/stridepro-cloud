@@ -64,6 +64,7 @@ const DEFAULT_ADJ=250; // last weigh-in correction from the app (kcal_adj 02.11)
 const curAdj=()=>(S._cfg&&S._cfg.adj!=null)?S._cfg.adj:DEFAULT_ADJ;
 function target(x){const [sp,fat]=SURP[x.c]||[150,60],ks=pkg(x.d)/66,prot=Math.round(pkg(x.d)*2.20462);
  const run=["easy","quality","long"].includes(x.c),burn=run?Math.round(x.b*ks):x.b,adj=curAdj();
+ if(S[x.d]&&S[x.d].fin){const fin=S[x.d].fin;return {kcal:fin,p:prot,c:Math.round((fin-4*prot-9*fat)/4),f:fat,app:1}}
  const mt=Math.round(2000*ks)+burn,fs=Math.min(Math.max((x.d>="2027-07-26"?0:sp)+adj,0),Math.floor(mt/5));
  const carbs=Math.round((mt+fs-4*prot-9*fat)/4);return {kcal:4*carbs+4*prot+9*fat,p:prot,c:carbs,f:fat}}
 let sel=TODAY;
@@ -83,7 +84,7 @@ function render(){
    h+=`<div class="day ${x.d===TODAY?"today":x.d<TODAY?"past":""}"><div class="hd"><span>${x.dn} ${fmt(x.d)} · ${esc(x.w)}</span><span>${x.b?x.b+" kcal":""}</span></div>
    <div class="t"><span class="tag">${esc(x.c)}</span>${esc(x.t)}</div>${x.g?`<div class="x">💪 ${esc(x.g)}</div>`:""}
    <details><summary>Opis treningu</summary><div class="x">${esc(x.x)}</div></details>
-   ${(()=>{const T=target(x),e=tot(x.d);return `<div class="tg"><div><b>${T.kcal}</b><span>cel kcal</span></div><div><b>${T.p}</b><span>białko g</span></div><div><b>${T.kcal-e.k}</b><span>${T.kcal-e.k>=0?"zostało":"ponad"}</span></div></div><div class="kc">Węgle ~${T.c} g · tłuszcz ~${T.f} g${curAdj()?` · korekta ${curAdj()>0?"+":""}${curAdj()}`:""}</div>`})()}${mealsHtml(x.d)}<div class="grid">
+   ${(()=>{const T=target(x),e=tot(x.d);return `<div class="tg"><div><b>${T.kcal}</b><span>${T.app?"cel z apki":"cel kcal"}</span></div><div><b>${T.p}</b><span>białko g</span></div><div><b>${T.kcal-e.k}</b><span>${T.kcal-e.k>=0?"zostało":"ponad"}</span></div></div><div class="kc">Węgle ~${T.c} g · tłuszcz ~${T.f} g${curAdj()?` · korekta ${curAdj()>0?"+":""}${curAdj()}`:""}</div>`})()}${mealsHtml(x.d)}<div class="grid">
     <label>Waga rano (kg)<input type="text" inputmode="decimal" data-d="${x.d}" data-k="kg" value="${s.kg??""}"></label>
     ${x.d<=TODAY?`<label>Garmin ${x.d===TODAY?"wczoraj":"spalone"}<input type="number" inputmode="numeric" data-d="${gd}" data-k="garmin" value="${gv??""}"></label>`:"<span></span>"}
    </div>
